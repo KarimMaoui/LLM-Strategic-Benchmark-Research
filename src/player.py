@@ -3,45 +3,61 @@ import os
 from openai import OpenAI
 
 class Player:
-    def __init__(self, name, role, secret_word):
+    def __init__(self, name, role, secret_word, provider):
         self.name = name
         self.role = role
         self.secret_word = secret_word
+        self.provider = provider
         
-        # On initialise DeepSeek via le client OpenAI
-        # DeepSeek est "OpenAI Compatible", on change juste l'URL
-        self.client = OpenAI(
-            api_key=os.getenv("DEEPSEEK_API_KEY"),
-            base_url="https://api.deepseek.com"
-        )
+        # --- CONFIGURATION DES 3 FOURNISSEURS ---
+        
+        if self.provider == "deepseek":
+            # DeepSeek V3
+            self.client = OpenAI(
+                api_key=os.getenv("DEEPSEEK_API_KEY"),
+                base_url="https://api.deepseek.com"
+            )
+            self.model = "deepseek-chat"
+
+        elif self.provider == "mistral":
+            # Mistral AI (France)
+            self.client = OpenAI(
+                api_key=os.getenv("MISTRAL_API_KEY"),
+                base_url="https://api.mistral.ai/v1"
+            )
+            # 'mistral-large-latest' est le meilleur, 'open-mistral-nemo' est gratuit/moins cher
+            self.model = "mistral-large-latest" 
+
+        elif self.provider == "gemini":
+            # Google Gemini (via protocole OpenAI)
+            self.client = OpenAI(
+                api_key=os.getenv("GEMINI_API_KEY"),
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+            )
+            self.model = "gemini-1.5-flash"
 
     def speak(self, conversation_history):
-        # 1. Préparation des instructions (System Prompt)
+        # 1. System Prompt (Instructions)
         if self.role == "Civil":
-            system_instruction = (
-                f"Tu es {self.name}, un CIVIL. Le mot secret est : '{self.secret_word}'.\n"
-                "Ton but : Prouver que tu connais le mot sans le dire explicitement. Sois subtil."
-            )
+            sys_prompt = f"Tu es {self.name} (CIVIL). Mot secret: '{self.secret_word}'. Sois subtil."
         else:
-            system_instruction = (
-                f"Tu es {self.name}, l'IMPOSTEUR. Tu ne connais PAS le mot secret.\n"
-                "Ton but : Lire la conversation, déduire le contexte, et inventer une phrase vague pour te fondre dans la masse."
-            )
+            sys_prompt = f"Tu es {self.name} (IMPOSTEUR). Tu ne connais pas le mot. Reste vague et fonds-toi dans la masse."
+        
+        sys_prompt += "\nRéponds UNIQUEMENT en JSON: {\"thought\": \"...\", \"message\": \"...\"}"
 
-        system_instruction += "\nRéponds UNIQUEMENT au format JSON : {\"thought\": \"ta pensée stratégique\", \"message\": \"ta phrase publique\"}"
-
-        # 2. Appel à l'API DeepSeek
+        # 2. Appel API
         try:
             response = self.client.chat.completions.create(
-                model="deepseek-chat", # ou "deepseek-reasoner" (R1) pour plus d'intelligence
-                response_format={"type": "json_object"},
+                model=self.model,
                 messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": f"Historique de la conversation :\n{conversation_history}\n\nÀ toi de parler."}
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": f"Historique:\n{conversation_history}\n\nÀ toi."}
                 ],
+                response_format={"type": "json_object"},
                 temperature=0.7
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
-            print(f"Erreur API : {e}")
-            return {"thought": "Erreur", "message": "Je suis muet..."}
+            # En cas d'erreur, on renvoie un message par défaut pour ne pas planter le jeu
+            print(f"⚠️ Erreur avec {self.name} ({self.provider}): {e}")
+            return {"thought": "Erreur technique", "message": "Je réfléchis..."}
