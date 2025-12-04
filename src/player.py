@@ -29,11 +29,13 @@ class Player:
             self.model = "mistral-large-latest" 
 
         elif self.provider == "gemini":
-            # Google Gemini (via protocole OpenAI)
+            # Google Gemini (via AI Studio)
+            # IMPORTANT : On utilise 'v1beta' car la compatibilité OpenAI est meilleure
             self.client = OpenAI(
                 api_key=os.getenv("GEMINI_API_KEY"),
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
             )
+            # On utilise le modèle Flash standard
             self.model = "gemini-1.5-flash"
 
     def speak(self, conversation_history):
