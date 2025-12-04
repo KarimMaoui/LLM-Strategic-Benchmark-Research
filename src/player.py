@@ -29,9 +29,10 @@ class Player:
         elif self.provider == "gemini":
             # Configuration Spécifique Google Native
             genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-            # On configure le modèle pour qu'il sorte du JSON obligatoirement
+            
+            # MISE À JOUR : On utilise la version 2.5 qui est disponible sur ton compte
             self.model = genai.GenerativeModel(
-                "gemini-1.5-flash",
+                "gemini-2.5-flash", 
                 generation_config={"response_mime_type": "application/json"}
             )
 
