@@ -1,55 +1,54 @@
 import os
+import sys
 from dotenv import load_dotenv
-from openai import OpenAI
 from colorama import init, Fore, Style
-from player import Player # On importe notre classe Player
 
-# Chargement des variables d'environnement (.env)
+# Ajout du chemin pour trouver player.py
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.player import Player
+
 load_dotenv()
 init(autoreset=True)
 
-# Configuration API
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    raise ValueError("Clé API manquante ! Vérifie ton fichier .env")
+# --- CONFIGURATION DE LA PARTIE ---
+SECRET_WORD = "Croissant"
 
-client = OpenAI(api_key=api_key)
-
-# Paramètres du jeu
-SECRET_WORD = "Aéroport"
-ROLES_CONFIG = ["Civil", "Imposteur", "Civil"]
+# On crée 3 joueurs DeepSeek
+PLAYERS_SETUP = [
+    {"name": "DeepSeek-Alpha", "role": "Civil"},
+    {"name": "DeepSeek-Beta",  "role": "Imposteur"},
+    {"name": "DeepSeek-Gamma", "role": "Civil"}
+]
 
 def run_game():
-    print(f"{Fore.CYAN}=== DÉBUT DU JEU : L'IMPOSTEUR ==={Style.RESET_ALL}")
-    print(f"Mot secret (caché à l'imposteur) : {SECRET_WORD}\n")
+    print(f"{Fore.CYAN}=== 🕵️  DEEPSEEK SELF-PLAY ARENA ==={Style.RESET_ALL}")
+    print(f"Mot secret : {SECRET_WORD}\n")
 
     # 1. Création des joueurs
     players = []
-    for i, role in enumerate(ROLES_CONFIG):
-        name = f"Joueur_{i+1}"
-        # L'imposteur reçoit "???" au lieu du mot
-        word_for_player = SECRET_WORD if role == "Civil" else "???"
-        players.append(Player(name, role, word_for_player, client))
+    for setup in PLAYERS_SETUP:
+        # Si c'est un civil, il reçoit le mot. Si imposteur, il reçoit "???"
+        word = SECRET_WORD if setup["role"] == "Civil" else "???"
+        players.append(Player(setup["name"], setup["role"], word))
 
-    # 2. Boucle de discussion (1 tour pour commencer)
-    conversation_log = ""
-    
+    # 2. Tour de table
+    history = ""
     for p in players:
         print(f"🤔 {p.name} ({p.role}) réfléchit...")
         
-        # Le joueur 'p' parle
-        result = p.speak(conversation_log)
+        response = p.speak(history)
         
-        # Affichage (Pensée cachée en gris, Message public en couleur)
-        color = Fore.GREEN if p.role == "Civil" else Fore.RED
-        print(f"{Style.DIM}   (Pensée : {result['thought']}){Style.RESET_ALL}")
-        print(f"{color}🗣️  {p.name} dit : \"{result['message']}\"{Style.RESET_ALL}\n")
+        # Affichage
+        if p.role == "Imposteur":
+            color = Fore.RED
+        else:
+            color = Fore.GREEN
+            
+        print(f"{Style.DIM}   (Pensée : {response.get('thought')}){Style.RESET_ALL}")
+        print(f"{color}🗣️  {p.name} : \"{response.get('message')}\"{Style.RESET_ALL}\n")
         
-        # Mise à jour de l'historique commun
-        conversation_log += f"{p.name}: {result['message']}\n"
-
-    print(f"{Fore.CYAN}=== FIN DU PREMIER TOUR ==={Style.RESET_ALL}")
-    # Plus tard, on ajoutera le vote ici !
+        history += f"{p.name}: {response.get('message')}\n"
 
 if __name__ == "__main__":
     run_game()
