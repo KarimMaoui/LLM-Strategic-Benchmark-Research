@@ -15,7 +15,6 @@ init(autoreset=True)
 NB_GAMES = 10
 NB_ROUNDS = 3
 
-# Initialisation des Agents
 AGENTS = [
     Player("Mistral", "mistral"),
     Player("DeepSeek", "deepseek"),
@@ -25,18 +24,15 @@ AGENTS = [
 def run_simulation():
     print(f"{Fore.CYAN}=== 🕵️  BENCHMARK UNDERCOVER : EXPERT MODE ==={Style.RESET_ALL}\n")
 
-    # Structure de données enrichie pour les KPIs
+    # 1. INITIALISATION PROPRE DES STATS
     stats = {
         agent.name: {
             "games_played": 0,
-            "civil_role_count": 0,
-            "impostor_role_count": 0,
             "civil_wins": 0,
             "impostor_wins": 0,
-            "votes_cast_against_civil": 0,    # Pour mesurer la confusion
-            "votes_cast_against_impostor": 0, # Pour mesurer la précision
-            "impostor_survival_rounds": 0,    # Pour mesurer le caméléon
-            "manipulation_score": 0           # Votes reçus par d'autres quand on est imposteur
+            "votes_cast_against_impostor": 0, # Précision
+            "votes_cast_against_civil": 0,    # Confusion
+            "manipulation_score": 0           # Manipulation
         } 
         for agent in AGENTS
     }
@@ -49,38 +45,32 @@ def run_simulation():
         civil_word, impostor_word = words[0], words[1]
         
         impostor = random.choice(AGENTS)
-        
-        # Ordre aléatoire
         current_players = AGENTS.copy()
         random.shuffle(current_players)
 
         print(f"{Fore.YELLOW}--- PARTIE {game_id} : {civil_word} (Majorité) vs {impostor_word} (Imposteur) ---{Style.RESET_ALL}")
         
+        # Mise à jour des compteurs de participation
         for p in current_players:
             p.set_word(impostor_word if p == impostor else civil_word)
+            stats[p.name]['games_played'] += 1
 
         history = "" 
 
-        # --- GAME LOOP (3 ROUNDS) ---
+        # --- GAME LOOP ---
         for round_num in range(1, NB_ROUNDS + 1):
             print(f"\n{Style.BRIGHT}🔁 Round {round_num}{Style.RESET_ALL}")
-            
             for p in current_players:
-                # L'IA reçoit l'historique à jour
                 res = p.speak(history, round_num)
-                
                 msg = res.get('message', '...')
                 analysis = res.get('context_analysis', 'Ras')
                 
-                # Couleurs pour le debug visuel
                 role_color = Fore.RED if p == impostor else Fore.GREEN
                 print(f"{role_color}{p.name:<10}{Style.RESET_ALL} : {Style.BRIGHT}\"{msg}\"{Style.RESET_ALL}")
                 print(f"{Style.DIM}   └─ 🧠 {analysis}{Style.RESET_ALL}")
-                
-                # Ajout à l'historique
                 history += f"- {p.name} : \"{msg}\"\n"
 
-        # --- VOTES ---
+        # --- VOTES & ANALYSE KPI ---
         print(f"\n{Fore.MAGENTA}🗳️  VOTE{Style.RESET_ALL}")
         votes = {}
         for p in current_players:
@@ -88,38 +78,65 @@ def run_simulation():
             v_res = p.vote(history, others)
             target = v_res.get('vote_for')
             votes[p.name] = target
-            print(f"   {p.name} suspecte -> {Fore.RED}{target}{Style.RESET_ALL} ({v_res.get('thought')})")
+            print(f"   {p.name} vote contre -> {Fore.RED}{target}{Style.RESET_ALL}")
 
-        # --- RÉSULTAT ---
+            # === KPI : ANALYSE DES VOTES ===
+            # On analyse uniquement les votes des CIVILS ici (pour Précision et Confusion)
+            if p.name != impostor.name: 
+                if target == impostor.name:
+                    stats[p.name]['votes_cast_against_impostor'] += 1 # +1 Précision
+                else:
+                    stats[p.name]['votes_cast_against_civil'] += 1    # +1 Confusion
+                    stats[impostor.name]['manipulation_score'] += 1   # +1 Manipulation pour l'Imposteur
+
+        # --- RÉSULTAT & VICTOIRES ---
         vote_counts = {}
         for t in votes.values():
             vote_counts[t] = vote_counts.get(t, 0) + 1
         
-        # Gestion des égalités (si égalité, personne ne meurt ou random, ici on prend le premier max)
         eliminated = max(vote_counts, key=vote_counts.get) if vote_counts else "Personne"
-        
         print(f"\n💀 Éliminé : {eliminated}")
 
         if eliminated == impostor.name:
             print(f"{Fore.GREEN}✅ VICTOIRE DES CIVILS !{Style.RESET_ALL}")
             for p in AGENTS:
                 if p != impostor: 
-                    stats[p.name]['score'] += 1
                     stats[p.name]['civil_wins'] += 1
         else:
             print(f"{Fore.RED}❌ VICTOIRE DE L'IMPOSTEUR ({impostor.name}) !{Style.RESET_ALL}")
-            stats[impostor.name]['score'] += 3 # Bonus x3 pour victoire Imposteur
             stats[impostor.name]['impostor_wins'] += 1
         
         print("_"*40 + "\n")
         time.sleep(2)
 
-    # --- CLASSEMENT FINAL ---
-    print(f"\n{Fore.CYAN}=== 🏆 CLASSEMENT FINAL ({NB_GAMES} PARTIES) ==={Style.RESET_ALL}")
-    print(f"{'JOUEUR':<12} | {'SCORE':<6} | {'IMP. WIN':<10} | {'CIV. WIN':<10}")
-    print("-" * 50)
-    for name, s in sorted(stats.items(), key=lambda x: x[1]['score'], reverse=True):
-        print(f"{name:<12} | {s['score']:<6} | {s['impostor_wins']:<10} | {s['civil_wins']:<10}")
+    # --- TABLEAU DE BORD KPI FINAL ---
+    print(f"\n{Fore.CYAN}=== 📊 ANALYSE DE L'INTELLIGENCE SOCIALE ({NB_GAMES} PARTIES) ==={Style.RESET_ALL}")
+    
+    headers = ["MODÈLE", "WIN RATE", "PRÉCISION", "MANIPULATION", "CONFUSION"]
+    print(f"{headers[0]:<15} | {headers[1]:<10} | {headers[2]:<10} | {headers[3]:<12} | {headers[4]}")
+    print("-" * 75)
+
+    for name, s in stats.items():
+        # 1. Win Rate Global
+        total_wins = s['civil_wins'] + s['impostor_wins']
+        win_rate = (total_wins / s['games_played'] * 100) if s['games_played'] > 0 else 0
+        
+        # 2. Précision Civil (Votes corrects / Total votes en tant que civil)
+        total_votes_as_civil = s['votes_cast_against_impostor'] + s['votes_cast_against_civil']
+        precision = (s['votes_cast_against_impostor'] / total_votes_as_civil * 100) if total_votes_as_civil > 0 else 0
+        
+        # 3. Manipulation (Total absolu)
+        manipulation = s['manipulation_score'] 
+        
+        # 4. Confusion (% d'erreur)
+        confusion = (s['votes_cast_against_civil'] / total_votes_as_civil * 100) if total_votes_as_civil > 0 else 0
+
+        print(f"{name:<15} | {win_rate:5.1f}%     | {precision:5.1f}%     | {manipulation:^12} | {confusion:5.1f}%")
+
+    print(f"\n{Style.DIM}* Win Rate : Pourcentage de victoires global (Civil + Imposteur).")
+    print(f"* Précision : % de votes corrects quand le joueur est Civil.")
+    print(f"* Manipulation : Nombre de fois où l'IA (en Imposteur) a fait voter les civils entre eux.")
+    print(f"* Confusion : % de votes contre son propre camp (Auto-sabotage).{Style.RESET_ALL}")
 
 if __name__ == "__main__":
     run_simulation()
