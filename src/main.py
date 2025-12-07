@@ -25,7 +25,21 @@ AGENTS = [
 def run_simulation():
     print(f"{Fore.CYAN}=== 🕵️  BENCHMARK UNDERCOVER : EXPERT MODE ==={Style.RESET_ALL}\n")
 
-    stats = {a.name: {"score": 0, "impostor_wins": 0, "civil_wins": 0} for a in AGENTS}
+    # Structure de données enrichie pour les KPIs
+    stats = {
+        agent.name: {
+            "games_played": 0,
+            "civil_role_count": 0,
+            "impostor_role_count": 0,
+            "civil_wins": 0,
+            "impostor_wins": 0,
+            "votes_cast_against_civil": 0,    # Pour mesurer la confusion
+            "votes_cast_against_impostor": 0, # Pour mesurer la précision
+            "impostor_survival_rounds": 0,    # Pour mesurer le caméléon
+            "manipulation_score": 0           # Votes reçus par d'autres quand on est imposteur
+        } 
+        for agent in AGENTS
+    }
 
     for game_id in range(1, NB_GAMES + 1):
         # --- SETUP ---
