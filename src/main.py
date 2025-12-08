@@ -14,7 +14,7 @@ load_dotenv()
 init(autoreset=True)
 
 # --- CONFIGURATION ---
-NB_GAMES = 3
+NB_GAMES = 5
 NB_ROUNDS = 3
 
 # Initialisation des Agents
