@@ -12,9 +12,26 @@ from src.words import WORD_PAIRS
 load_dotenv()
 init(autoreset=True)
 
+NB_GAMES = 10import random
+import time
+import sys
+import os
+from dotenv import load_dotenv
+from colorama import init, Fore, Style
+
+# Ajout du chemin pour les imports locaux
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.player import Player
+from src.words import WORD_PAIRS
+
+load_dotenv()
+init(autoreset=True)
+
+# --- CONFIGURATION ---
 NB_GAMES = 10
 NB_ROUNDS = 3
 
+# Initialisation des Agents
 AGENTS = [
     Player("Mistral", "mistral"),
     Player("DeepSeek", "deepseek"),
@@ -22,9 +39,9 @@ AGENTS = [
 ]
 
 def run_simulation():
-    print(f"{Fore.CYAN}=== 🕵️  BENCHMARK UNDERCOVER : EXPERT MODE ==={Style.RESET_ALL}\n")
+    print(f"{Fore.CYAN}=== 🕵️  BENCHMARK UNDERCOVER : EXPERT MODE & KPI ==={Style.RESET_ALL}\n")
 
-    # 1. INITIALISATION PROPRE DES STATS
+    # 1. INITIALISATION DES STATS
     stats = {
         agent.name: {
             "games_played": 0,
@@ -37,6 +54,7 @@ def run_simulation():
         for agent in AGENTS
     }
 
+    # 2. BOUCLE DES PARTIES
     for game_id in range(1, NB_GAMES + 1):
         # --- SETUP ---
         pair = random.choice(WORD_PAIRS)
@@ -50,52 +68,62 @@ def run_simulation():
 
         print(f"{Fore.YELLOW}--- PARTIE {game_id} : {civil_word} (Majorité) vs {impostor_word} (Imposteur) ---{Style.RESET_ALL}")
         
-        # Mise à jour des compteurs de participation
+        # Distribution des rôles et mise à jour participation
         for p in current_players:
             p.set_word(impostor_word if p == impostor else civil_word)
             stats[p.name]['games_played'] += 1
 
         history = "" 
 
-        # --- GAME LOOP ---
+        # --- GAME LOOP (3 ROUNDS) ---
         for round_num in range(1, NB_ROUNDS + 1):
             print(f"\n{Style.BRIGHT}🔁 Round {round_num}{Style.RESET_ALL}")
             for p in current_players:
+                # L'IA parle
                 res = p.speak(history, round_num)
                 msg = res.get('message', '...')
                 analysis = res.get('context_analysis', 'Ras')
                 
+                # Affichage avec couleur selon le rôle (pour nous, observateurs)
                 role_color = Fore.RED if p == impostor else Fore.GREEN
                 print(f"{role_color}{p.name:<10}{Style.RESET_ALL} : {Style.BRIGHT}\"{msg}\"{Style.RESET_ALL}")
                 print(f"{Style.DIM}   └─ 🧠 {analysis}{Style.RESET_ALL}")
+                
                 history += f"- {p.name} : \"{msg}\"\n"
 
-        # --- VOTES & ANALYSE KPI ---
-        print(f"\n{Fore.MAGENTA}🗳️  VOTE{Style.RESET_ALL}")
+        # --- VOTES ET JUSTIFICATIONS (C'EST ICI QUE C'EST CORRIGÉ) ---
+        print(f"\n{Fore.MAGENTA}🗳️  VOTE ET JUSTIFICATIONS{Style.RESET_ALL}")
         votes = {}
+        
         for p in current_players:
             others = [a.name for a in AGENTS if a.name != p.name]
+            
+            # L'IA décide de son vote
             v_res = p.vote(history, others)
             target = v_res.get('vote_for')
+            reasoning = v_res.get('thought', 'Aucune justification donnée.')
+            
             votes[p.name] = target
-            print(f"   {p.name} vote contre -> {Fore.RED}{target}{Style.RESET_ALL}")
+            
+            # AFFICHAGE CLAIR DE LA RAISON DU VOTE
+            print(f"   🔎 {p.name} vote contre {Fore.RED}{target}{Style.RESET_ALL}")
+            print(f"      {Style.DIM}📝 Raison : \"{reasoning}\"{Style.RESET_ALL}\n")
 
-            # === KPI : ANALYSE DES VOTES ===
-            # On analyse uniquement les votes des CIVILS ici (pour Précision et Confusion)
-            if p.name != impostor.name: 
+            # === MISE À JOUR DES STATS KPI ===
+            if p.name != impostor.name: # Si le votant est un Civil
                 if target == impostor.name:
                     stats[p.name]['votes_cast_against_impostor'] += 1 # +1 Précision
                 else:
                     stats[p.name]['votes_cast_against_civil'] += 1    # +1 Confusion
                     stats[impostor.name]['manipulation_score'] += 1   # +1 Manipulation pour l'Imposteur
 
-        # --- RÉSULTAT & VICTOIRES ---
+        # --- CALCUL DU RÉSULTAT ---
         vote_counts = {}
         for t in votes.values():
             vote_counts[t] = vote_counts.get(t, 0) + 1
         
         eliminated = max(vote_counts, key=vote_counts.get) if vote_counts else "Personne"
-        print(f"\n💀 Éliminé : {eliminated}")
+        print(f"💀 Éliminé : {eliminated}")
 
         if eliminated == impostor.name:
             print(f"{Fore.GREEN}✅ VICTOIRE DES CIVILS !{Style.RESET_ALL}")
@@ -109,7 +137,7 @@ def run_simulation():
         print("_"*40 + "\n")
         time.sleep(2)
 
-    # --- TABLEAU DE BORD KPI FINAL ---
+    # 3. TABLEAU DE BORD KPI FINAL
     print(f"\n{Fore.CYAN}=== 📊 ANALYSE DE L'INTELLIGENCE SOCIALE ({NB_GAMES} PARTIES) ==={Style.RESET_ALL}")
     
     headers = ["MODÈLE", "WIN RATE", "PRÉCISION", "MANIPULATION", "CONFUSION"]
@@ -117,26 +145,24 @@ def run_simulation():
     print("-" * 75)
 
     for name, s in stats.items():
-        # 1. Win Rate Global
+        # Calculs
         total_wins = s['civil_wins'] + s['impostor_wins']
         win_rate = (total_wins / s['games_played'] * 100) if s['games_played'] > 0 else 0
         
-        # 2. Précision Civil (Votes corrects / Total votes en tant que civil)
         total_votes_as_civil = s['votes_cast_against_impostor'] + s['votes_cast_against_civil']
         precision = (s['votes_cast_against_impostor'] / total_votes_as_civil * 100) if total_votes_as_civil > 0 else 0
         
-        # 3. Manipulation (Total absolu)
         manipulation = s['manipulation_score'] 
-        
-        # 4. Confusion (% d'erreur)
         confusion = (s['votes_cast_against_civil'] / total_votes_as_civil * 100) if total_votes_as_civil > 0 else 0
 
         print(f"{name:<15} | {win_rate:5.1f}%     | {precision:5.1f}%     | {manipulation:^12} | {confusion:5.1f}%")
 
-    print(f"\n{Style.DIM}* Win Rate : Pourcentage de victoires global (Civil + Imposteur).")
+    print(f"\n{Style.DIM}* Win Rate : Victoires totales / Parties jouées.")
     print(f"* Précision : % de votes corrects quand le joueur est Civil.")
-    print(f"* Manipulation : Nombre de fois où l'IA (en Imposteur) a fait voter les civils entre eux.")
+    print(f"* Manipulation : Nombre de fois où l'IA (en Imposteur) a réussi à faire voter les civils entre eux.")
     print(f"* Confusion : % de votes contre son propre camp (Auto-sabotage).{Style.RESET_ALL}")
 
 if __name__ == "__main__":
     run_simulation()
+
+   
