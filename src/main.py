@@ -5,20 +5,6 @@ import os
 from dotenv import load_dotenv
 from colorama import init, Fore, Style
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.player import Player
-from src.words import WORD_PAIRS
-
-load_dotenv()
-init(autoreset=True)
-
-NB_GAMES = 10import random
-import time
-import sys
-import os
-from dotenv import load_dotenv
-from colorama import init, Fore, Style
-
 # Ajout du chemin pour les imports locaux
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.player import Player
@@ -28,7 +14,7 @@ load_dotenv()
 init(autoreset=True)
 
 # --- CONFIGURATION ---
-NB_GAMES = 10
+NB_GAMES = 3
 NB_ROUNDS = 3
 
 # Initialisation des Agents
