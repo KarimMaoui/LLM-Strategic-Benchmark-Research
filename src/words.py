@@ -1,5 +1,3 @@
- src/words.py
-
 WORD_PAIRS = [
      #--- CEUX QU'ON GARDE (Les concepts forts) ---
     ("Amour", "Amitié"),           Piège : L'intensité / Romantisme
