@@ -92,16 +92,21 @@ class Player:
         return self._generate(sys_prompt, context)
 
     def vote(self, conversation_history, alive_players_names):
-        # Ajout de l'option "Personne"
+        # On garde l'option "Personne" mais on la rend psychologiquement coûteuse
         options = alive_players_names + ["Personne"]
         
         sys_prompt = (
             f"Tu es {self.name}. Ton mot était '{self.word}'.\n"
-            "Phase de VOTE.\n"
-            "Analyse les indices. Y a-t-il un intrus ?\n"
-            "- Si un mot t'a semblé hors sujet ou techniquement faux : Vote contre le joueur.\n"
-            "- Si tu penses que tout le monde a le même mot (ou que c'est trop dur à dire) : Vote 'Personne'.\n\n"
-            f"Choix possibles : {options}\n"
-            "Réponds JSON: {\"thought\": \"Raisonnement...\", \"vote_for\": \"Nom_Ou_Personne\"}"
+            "Phase de VOTE DÉCISIVE.\n"
+            "RAPPEL CRITIQUE : Si l'Imposteur n'est pas éliminé, les Civils perdent probabilité de gagner.\n"
+            "L'option 'Personne' est à utiliser UNIQUEMENT en cas de certitude absolue que tout le monde a le même mot.\n\n"
+            
+            "TA MISSION :\n"
+            "1. Cherche la 'Petite Bête' : Un mot un peu trop générique ? Une nuance légèrement fausse ?\n"
+            "2. Fais confiance à ton intuition (Gut feeling). Même un doute de 51% suffit pour voter.\n"
+            "3. Ne vote 'Personne' que si tu es prêt à parier ta vie que tout le monde est Civil.\n\n"
+            
+            f"Cibles : {options}\n"
+            "Réponds JSON: {\"thought\": \"J'élimine X car son mot '...' était moins précis que les autres...\", \"vote_for\": \"Nom_Ou_Personne\"}"
         )
         return self._generate(sys_prompt, conversation_history)
