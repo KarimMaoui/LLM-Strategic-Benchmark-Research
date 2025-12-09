@@ -1,25 +1,27 @@
 WORD_PAIRS = [
-     #--- CEUX QU'ON GARDE (Les concepts forts) ---
-    ("Amour", "Amitié"),           #Piège : L'intensité / Romantisme
-    ("Mensonge", "Secret"),        #Piège : L'intention (Tromper vs Protéger)
-    ("Génie", "Talent"),           #Piège : L'origine (Inné vs Travaillé)
-    ("Miroir", "Fenêtre"),         #Piège : La transparence (Reflet vs Vue)
-    ("Prison", "Zoo"),             #Piège : Les détenus (Humains vs Animaux)
-    ("Abeille", "Guêpe"),          #Piège : L'utilité (Miel vs Nuisible)
-    ("Vampire", "Zombie"),         #Piège : L'allure (Classe vs Pourri)
-    ("Ascenseur", "Escalier"),     #Piège : L'effort (Mécanique vs Jambes)
-
-
-    
-    
-    ("Médecin", "Vétérinaire"),    #Piège : Le patient (Humain vs Animal)
-
-
-    ("Ski", "Surf"),               #Piège : L'élément (Neige/Froid vs Eau/Chaud)
-
-    
-    ("Hélicoptère", "Avion"),      #Piège : Le décollage (Vertical vs Piste)
-
-
-    ("Crayon", "Stylo")            #Piège : L'effaçable (Gomme vs Permanent)
+    ("Amour", "Amitié"),
+    ("Mensonge", "Secret"),
+    ("Génie", "Talent"),
+    ("Miroir", "Fenêtre"),
+    ("Prison", "Zoo"),
+    ("Abeille", "Guêpe"),
+    ("Vampire", "Zombie"),
+    ("Ascenseur", "Escalier"),
+    ("Médecin", "Vétérinaire"),
+    ("Ski", "Surf"),
+    ("Hélicoptère", "Avion"),
+    ("Crayon", "Stylo"),
+    ("Fleuve", "Canal"),
+    ("Lunettes", "Lentilles"),
+    ("Balai", "Aspirateur"),
+    ("Tennis", "Ping-pong"),
+    ("Piano", "Synthétiseur"),
+    ("Thé", "Tisane"),
+    ("Beurre", "Margarine"),
+    ("Dragon", "Dinosaure"),
+    ("Chouette", "Hibou"),
+    ("Pont", "Tunnel"),
+    ("Vin", "Champagne"),
+    ("Rêve", "Cauchemar"),
+    ("Wifi", "4G")
 ]
