@@ -30,77 +30,78 @@ class Player:
             
             if self.provider == "gemini":
                 chat = self.model.start_chat(history=[])
-                response = chat.send_message(f"{system_prompt}\n\nSITUATION ACTUELLE:\n{user_context}")
+                response = chat.send_message(f"{system_prompt}\n\nCONTEXTE ACTUEL:\n{user_context}")
                 return json.loads(response.text)
             else:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"SITUATION ACTUELLE:\n{user_context}"}
+                        {"role": "user", "content": f"CONTEXTE ACTUEL:\n{user_context}"}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.4 # Température basse pour être chirurgical et éviter le bavardage
+                    temperature=0.5
                 )
                 return json.loads(response.choices[0].message.content)
         except Exception as e:
             print(f"⚠️ Erreur {self.name}: {e}")
-            return {"context_analysis": "Erreur", "message": "Bug", "vote": "Personne"}
+            return {"context_analysis": "Erreur", "message": "Passe", "vote_for": "Personne"}
 
     def speak(self, conversation_history, round_num):
-        # Détection : Suis-je le premier à parler ce tour-ci ?
-        is_first = len(conversation_history.strip()) < 5 and round_num == 1
+        # Détection : Est-ce le tout début du jeu ?
+        is_first_speaker = len(conversation_history.strip()) < 5 and round_num == 1
         
-        role_instruction = ""
-        
-        if is_first:
-            # STRATÉGIE JOUEUR 1 : AMBIVALENCE CALCULÉE
-            role_instruction = (
-                "SITUATION : Tu es le PREMIER à parler. C'est dangereux.\n"
-                "RISQUE : Si tu es trop précis, l'Imposteur te reconnaîtra. Si tu es trop vague, on te suspectera.\n"
-                "ACTION : Imagine 3 mots alternatifs que l'Imposteur pourrait avoir (le 'Preshot'). \n"
-                "Choisis un mot 'Carrefour' qui marche pour ton mot ET pour les mots adverses probables."
+        if is_first_speaker:
+            # --- RÈGLES DU PREMIER JOUEUR ---
+            strategy_instruction = (
+                "SITUATION : Tu es le PREMIER à parler.\n"
+                "OBJECTIF : Ne pas te faire repérer par l'Imposteur, mais être reconnu par les Civils.\n"
+                "CONTRAINTE LONGUEUR : 1 SEUL MOT UNIQUE (Strict).\n"
+                "STRATÉGIE : Trouve un 'Mot Carrefour' (un mot qui a un double sens ou qui est assez large)."
             )
         else:
-            # STRATÉGIE SUIVEUR : ANALYSE DIFFÉRENTIELLE STRICTE
-            role_instruction = (
+            # --- RÈGLES DES SUIVANTS ---
+            strategy_instruction = (
                 "SITUATION : D'autres ont parlé avant toi.\n"
-                "MISSION CRITIQUE : Ne cherche pas le point commun ! Cherche la DIFFÉRENCE FATALE.\n"
-                "Exemple : Si ton mot est 'Piscine' et qu'ils disent 'Sable', ce n'est PAS 'compatible vacances', c'est 'INCOMPATIBLE sol'.\n"
-                "Si tu détectes une nuance qui ne colle pas à 100% avec ton mot : TU ES L'IMPOSTEUR. MENS et aligne-toi sur eux."
+                "OBJECTIF : Confirmer ton camp en donnant une nuance précise.\n"
+                "CONTRAINTE LONGUEUR : 1 ou 2 Mots MAX.\n"
+                "ANTI-RÉPÉTITION : Interdiction formelle de répéter un mot DEJA DIT dans l'historique.\n"
+                "STRATÉGIE : Si tu as un doute sur un joueur précédent, teste-le avec un mot qui lève l'ambiguïté."
             )
 
         sys_prompt = (
             f"Tu es {self.name}. Tu joues à 'Undercover' (Mode Expert).\n"
             f"TON MOT SECRET : '{self.word}'.\n\n"
             
-            f"{role_instruction}\n\n"
+            f"{strategy_instruction}\n\n"
             
-            "CONTRAINTES DE RÉPONSE (Vitales) :\n"
-            "1. UN SEUL MOT UNIQUE. Interdiction absolue de faire une phrase ou de mettre deux mots.\n"
-            "2. Pas de ponctuation, pas d'article (pas de 'le', 'un', 'c'est'). Juste le mot.\n"
-            "3. Pas de nom propre trop évident.\n\n"
+            "RÈGLES DE SÉCURITÉ :\n"
+            "1. Ne jamais utiliser la racine du mot secret (ex: interdit de dire 'Vol' pour 'Avion').\n"
+            "2. Vérifie l'historique : Ton mot doit être différent de ceux déjà dits.\n"
+            "3. Pas de phrases, pas d'articles.\n\n"
             
-            "Format JSON attendu :\n"
+            "Format JSON :\n"
             "{\n"
-            "  \"context_analysis\": \"(Pensée privée) 1. Quels sont les mots adverses possibles ? 2. Ce qui a été dit colle-t-il EXACTEMENT à mon mot ou juste 'à peu près' ?\",\n"
-            "  \"strategy\": \"(Pensée privée) Je vise l'ambiguïté ou la précision ?\",\n"
-            "  \"message\": \"TON_MOT_UNIQUE\"\n"
+            "  \"context_analysis\": \"(Privé) Analyse des mots précédents. Sont-ils trop proches du mien ?\",\n"
+            "  \"message\": \"TON_MOT\"\n"
             "}"
         )
         
-        context = f"Round {round_num}.\nHistorique :\n{conversation_history if conversation_history else '(Aucun historique - Tu ouvres le bal)'}"
+        context = f"Round {round_num}.\nHistorique :\n{conversation_history if conversation_history else '(Tu commences)'}"
         
         return self._generate(sys_prompt, context)
 
     def vote(self, conversation_history, alive_players_names):
+        # Ajout de l'option "Personne"
+        options = alive_players_names + ["Personne"]
+        
         sys_prompt = (
             f"Tu es {self.name}. Ton mot était '{self.word}'.\n"
             "Phase de VOTE.\n"
-            "Disqualification immédiate si :\n"
-            "- Un joueur a donné un mot 'Techniquement vrai' mais avec la mauvaise nuance (ex: 'Chaud' pour 'Soleil' alors que le mot était 'Lampe').\n"
-            "- Un joueur a répété un synonyme trop proche des autres.\n"
-            f"Suspects : {alive_players_names}\n"
-            "Réponds JSON: {\"thought\": \"Analyse des nuances...\", \"vote_for\": \"NomExact\"}"
+            "Analyse les indices. Y a-t-il un intrus ?\n"
+            "- Si un mot t'a semblé hors sujet ou techniquement faux : Vote contre le joueur.\n"
+            "- Si tu penses que tout le monde a le même mot (ou que c'est trop dur à dire) : Vote 'Personne'.\n\n"
+            f"Choix possibles : {options}\n"
+            "Réponds JSON: {\"thought\": \"Raisonnement...\", \"vote_for\": \"Nom_Ou_Personne\"}"
         )
         return self._generate(sys_prompt, conversation_history)
