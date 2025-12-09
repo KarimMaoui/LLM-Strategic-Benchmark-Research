@@ -25,9 +25,8 @@ class Player:
         self.word = word
 
     def _generate(self, system_prompt, user_context):
-        """Gère l'appel API avec une pause de sécurité"""
         try:
-            time.sleep(1.5) # Pause pour laisser le temps de 'réfléchir' (et rate limit)
+            time.sleep(1.5) 
             
             if self.provider == "gemini":
                 chat = self.model.start_chat(history=[])
@@ -41,43 +40,67 @@ class Player:
                         {"role": "user", "content": f"SITUATION ACTUELLE:\n{user_context}"}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.6 # Température basse pour être précis et concis
+                    temperature=0.4 # Température basse pour être chirurgical et éviter le bavardage
                 )
                 return json.loads(response.choices[0].message.content)
         except Exception as e:
             print(f"⚠️ Erreur {self.name}: {e}")
-            return {"thought": "Erreur", "message": "...", "vote": "Personne"}
+            return {"context_analysis": "Erreur", "message": "Bug", "vote": "Personne"}
 
     def speak(self, conversation_history, round_num):
-        # PROMPT DE HAUT NIVEAU STRATÉGIQUE
+        # Détection : Suis-je le premier à parler ce tour-ci ?
+        is_first = len(conversation_history.strip()) < 5 and round_num == 1
+        
+        role_instruction = ""
+        
+        if is_first:
+            # STRATÉGIE JOUEUR 1 : AMBIVALENCE CALCULÉE
+            role_instruction = (
+                "SITUATION : Tu es le PREMIER à parler. C'est dangereux.\n"
+                "RISQUE : Si tu es trop précis, l'Imposteur te reconnaîtra. Si tu es trop vague, on te suspectera.\n"
+                "ACTION : Imagine 3 mots alternatifs que l'Imposteur pourrait avoir (le 'Preshot'). \n"
+                "Choisis un mot 'Carrefour' qui marche pour ton mot ET pour les mots adverses probables."
+            )
+        else:
+            # STRATÉGIE SUIVEUR : ANALYSE DIFFÉRENTIELLE STRICTE
+            role_instruction = (
+                "SITUATION : D'autres ont parlé avant toi.\n"
+                "MISSION CRITIQUE : Ne cherche pas le point commun ! Cherche la DIFFÉRENCE FATALE.\n"
+                "Exemple : Si ton mot est 'Piscine' et qu'ils disent 'Sable', ce n'est PAS 'compatible vacances', c'est 'INCOMPATIBLE sol'.\n"
+                "Si tu détectes une nuance qui ne colle pas à 100% avec ton mot : TU ES L'IMPOSTEUR. MENS et aligne-toi sur eux."
+            )
+
         sys_prompt = (
-            f"Tu es {self.name}. Tu joues à 'Undercover'.\n"
+            f"Tu es {self.name}. Tu joues à 'Undercover' (Mode Expert).\n"
             f"TON MOT SECRET : '{self.word}'.\n\n"
             
-            "RÈGLES ABSOLUES (Mode Expert) :\n"
-            "1. LONGUEUR : 1 à 3 mots MAXIMUM. Interdiction de faire des phrases. Pas de verbes.\n"
-            "2. ADAPTATION : Lis ce que les autres ont dit AVANT de parler. S'ils disent un truc incompatible avec ton mot, TU ES L'IMPOSTEUR. Dans ce cas, mens et aligne-toi sur eux.\n"
-            "3. SUBTILITÉ : Ne sois pas évident. Si ton mot est 'Soleil', ne dis pas 'Jaune' (trop facile), dis 'Astres' ou 'Été'.\n\n"
+            f"{role_instruction}\n\n"
             
-            "Format de réponse JSON attendu :\n"
+            "CONTRAINTES DE RÉPONSE (Vitales) :\n"
+            "1. UN SEUL MOT UNIQUE. Interdiction absolue de faire une phrase ou de mettre deux mots.\n"
+            "2. Pas de ponctuation, pas d'article (pas de 'le', 'un', 'c'est'). Juste le mot.\n"
+            "3. Pas de nom propre trop évident.\n\n"
+            
+            "Format JSON attendu :\n"
             "{\n"
-            "  \"context_analysis\": \"Analyse CRITIQUE : Qu'ont dit les joueurs précédents ? Est-ce compatible avec mon mot '{self.word}' ? Si non, quel est LEUR mot probable ?\",\n"
-            "  \"strategy\": \"Si je suis safe -> indice subtil. Si je suis suspect -> bluff total pour coller aux autres.\",\n"
-            "  \"message\": \"Ton mot ou groupe de mots (Max 3 mots)\"\n"
+            "  \"context_analysis\": \"(Pensée privée) 1. Quels sont les mots adverses possibles ? 2. Ce qui a été dit colle-t-il EXACTEMENT à mon mot ou juste 'à peu près' ?\",\n"
+            "  \"strategy\": \"(Pensée privée) Je vise l'ambiguïté ou la précision ?\",\n"
+            "  \"message\": \"TON_MOT_UNIQUE\"\n"
             "}"
         )
         
-        context = f"Nous sommes au Round {round_num}.\nHistorique de la conversation :\n{conversation_history if conversation_history else '(Tu es le premier à parler, reste vague !)'}"
+        context = f"Round {round_num}.\nHistorique :\n{conversation_history if conversation_history else '(Aucun historique - Tu ouvres le bal)'}"
         
         return self._generate(sys_prompt, context)
 
     def vote(self, conversation_history, alive_players_names):
         sys_prompt = (
             f"Tu es {self.name}. Ton mot était '{self.word}'.\n"
-            "Phase de VOTE FINAL.\n"
-            "Analyse l'historique complet. Qui a donné un indice qui ne collait pas tout à fait ?\n"
-            "Qui a semblé hésiter ou copier les autres ?\n"
-            f"Joueurs ciblables : {alive_players_names}\n"
-            "Réponds JSON: {\"thought\": \"Raisonnement de détective...\", \"vote_for\": \"NomExactDuJoueur\"}"
+            "Phase de VOTE.\n"
+            "Disqualification immédiate si :\n"
+            "- Un joueur a donné un mot 'Techniquement vrai' mais avec la mauvaise nuance (ex: 'Chaud' pour 'Soleil' alors que le mot était 'Lampe').\n"
+            "- Un joueur a répété un synonyme trop proche des autres.\n"
+            f"Suspects : {alive_players_names}\n"
+            "Réponds JSON: {\"thought\": \"Analyse des nuances...\", \"vote_for\": \"NomExact\"}"
         )
         return self._generate(sys_prompt, conversation_history)
