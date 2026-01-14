@@ -12,7 +12,7 @@ from src.words import WORD_PAIRS
 load_dotenv()
 init(autoreset=True)
 
-NB_GAMES = 40
+NB_GAMES = 8
 NB_ROUNDS = 3
 
 AGENTS = [
